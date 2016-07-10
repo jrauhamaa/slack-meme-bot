@@ -3,7 +3,7 @@ from memegenerator import make_meme
 
 app = Flask(__name__)
 
-source_images_path = "source_images"
+SOURCE_IMAGES_PATH = "source_images"
 image_dict = {
     "doge": "doge.jpg"
 }
@@ -25,7 +25,7 @@ def hello_world():
     if not source_image_name:
         return '', 400  # TODO: tell the user that the image wasn't found
 
-    image_path = "{path}/{name}".format(path=source_images_path, name=source_image_name)
+    image_path = "{path}/{name}".format(path=SOURCE_IMAGES_PATH, name=source_image_name)
     if len(content.split("/")) == 1:
         top_text = ""
         bottom_text = content
@@ -35,10 +35,11 @@ def hello_world():
     top_text = top_text.strip()
 
     filename = make_meme(top_text, bottom_text, image_path)
+    file_url = "{url_root}images/{filename}".format(url_root=request.url_root, filename=filename)
 
     response = {
         "response_type": "in_channel",
-        "text": filename
+        "text": file_url
     }
     return jsonify(response)
 
