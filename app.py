@@ -8,6 +8,9 @@ image_dict = {
     "doge": "doge.jpg"
 }
 
+@app.route('/monitor')
+def monitor():
+    return 'OK', 200
 
 @app.route('/', methods=['POST'])
 def hello_world():
