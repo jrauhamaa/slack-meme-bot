@@ -1,1 +1,1 @@
-web: export FLASK_APP=app.py && flask run --port=80
+web: export FLASK_APP=app.py && flask run --port=$PORT
