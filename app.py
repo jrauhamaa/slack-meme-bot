@@ -9,6 +9,11 @@ image_dict = {
 }
 
 
+@app.route('/monitor')
+def monitor():
+    return 'OK', 200
+
+
 @app.route('/', methods=['POST'])
 def hello_world():
     data = json.loads(request.data)
