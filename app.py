@@ -1,5 +1,14 @@
 from flask import Flask, jsonify, request, json, send_from_directory
 from memegenerator import make_meme
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+cloudinary.config(
+  cloud_name = "polirytmi",
+  api_key = "457765985322576",
+  api_secret = "JX4FiBiLVx5GdRVTGPXqU-RxiYI"
+)
 
 app = Flask(__name__)
 
@@ -40,9 +49,12 @@ def hello_world():
     filename = make_meme(top_text, bottom_text, image_path)
     file_url = "{url_root}images/{filename}".format(url_root=request.url_root, filename=filename)
 
+    upload = cloudinary.uploader.upload("images/{filename}".format(filename=filename))
+    meme_url = upload['secure_url']
+
     response = {
         "response_type": "in_channel",
-        "text": file_url
+        "text": meme_url
     }
     return jsonify(response)
 
