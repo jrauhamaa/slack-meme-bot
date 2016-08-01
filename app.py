@@ -23,9 +23,7 @@ def monitor():
 
 @app.route('/', methods=['POST'])
 def hello_world():
-    data = json.loads(request.data)
-    # TODO: support the actual slack request format
-    message = data.get("message")
+    message = request.form["text"]
     if not message:
         return '', 400
     # Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"
