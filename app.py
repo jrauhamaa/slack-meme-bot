@@ -24,16 +24,22 @@ def monitor():
 @app.route('/', methods=['POST'])
 def hello_world():
     message = request.form["text"]
+    invalid_usage_response = jsonify({
+        "text": 'Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"'
+    })
+    image_not_found_response = jsonify({
+        "text": 'No such image found'
+    })
     if not message:
-        return '', 400
+        return invalid_usage_response, 400
     # Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"
     try:
         [name, content] = message.split(" ", 1)
     except ValueError:
-        return '', 400  # TODO: return instructions on how to use the bot
+        return invalid_usage_response, 400  # TODO: return instructions on how to use the bot
     source_image_name = image_dict.get(name)
     if not source_image_name:
-        return '', 400  # TODO: tell the user that the image wasn't found
+        return image_not_found_response, 400  # TODO: tell the user that the image wasn't found
 
     image_path = "{path}/{name}".format(path=SOURCE_IMAGES_PATH, name=source_image_name)
     if len(content.split("/")) == 1:
