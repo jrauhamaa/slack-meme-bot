@@ -1,8 +1,12 @@
-from flask import Flask, jsonify, request, json, send_from_directory
+from flask import Flask, jsonify, request, json, send_from_directory, redirect
 from memegenerator import make_meme
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from werkzeug.utils import secure_filename
+import os
+from uuid import uuid4
+import hashlib
 
 cloudinary.config(
   cloud_name = "polirytmi",
@@ -13,6 +17,67 @@ cloudinary.config(
 app = Flask(__name__)
 
 SOURCE_IMAGES_PATH = "source_images"
+UPLOAD_FOLDER = 'source_images'
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
+SERVER_SECRET = "DUMMYSECRET"
+HASH_LENGTH = 14
+
+def encode_id(name):
+    hash = hashlib.sha256(SERVER_SECRET)
+    hash.update(name)
+    public_id_hash = hash.hexdigest()[0:HASH_LENGTH]
+    public_id = "-".join([name, public_id_hash])
+    return public_id
+
+def decode_id(public_id):
+    return public_id.rsplit("-", 1)[0]
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+
+@app.route('/add', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            return redirect(request.url)
+        file = request.files['file']
+        filename = file.filename
+        public_name = request.form.get("public_id")
+        if not public_name:
+            #TODO: return error
+            return redirect(request.url)
+        # if user does not select file, browser also
+        # submit a empty part without filename
+        if filename == '':
+            return redirect(request.url)
+        if file and allowed_file(filename):
+            filetype = filename.rsplit('.', 1)[1]
+            filename_tmp = "{uuid}.{ext}".format(uuid = str(uuid4()), ext = filetype)
+            filepath = os.path.join(UPLOAD_FOLDER, filename_tmp)
+            public_id = encode_id(public_name)
+
+            file.save(filepath)
+            cloudinary.uploader.upload(filepath, folder = SOURCE_IMAGES_PATH, public_id = public_id)
+            #TODO: show success
+            return redirect(request.url)
+    return '''
+    <!doctype html>
+    <title>Lataa uusi kuva</title>
+    <h1>Lataa uusi kuva</h1>
+    <form action="" method=post enctype=multipart/form-data>
+      <p>
+         <label for=public_id>Nimi:</label>
+         <input type=text name=public_id>
+         <label for=file>Kuva:</label>
+         <input type=file name=file>
+         <input type=submit value=Lataa>
+    </form>
+    '''
+
+
 
 @app.route('/monitor')
 def monitor():
@@ -27,7 +92,7 @@ def list_source_images():
         image_id = "{id}.{format}".format(id = resource["public_id"], format = resource["format"])
         thumbnail_url = "{base}/{quality}/{image_id}".format(base = base_string, quality = quality, image_id = image_id)
         name = resource["public_id"].split("/")[-1]
-        return {"title": name, "thumb_url": thumbnail_url}
+        return {"title": decode_id(name), "thumb_url": thumbnail_url}
     return map(formatResource, resources)
 
 def create_meme(name, top_text, bottom_text):
