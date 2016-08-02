@@ -1,3 +1,6 @@
 images/*
 !images/empty.txt
+source_images/*
+!source_images/empty.txt
+!source_images/doge.jpg
 *.pyc
