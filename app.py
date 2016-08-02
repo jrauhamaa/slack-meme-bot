@@ -27,21 +27,21 @@ def list_source_images():
         image_id = "{id}.{format}".format(id = resource["public_id"], format = resource["format"])
         thumbnail_url = "{base}/{quality}/{image_id}".format(base = base_string, quality = quality, image_id = image_id)
         name = resource["public_id"].split("/")[-1]
-        return {"name": name, "url": thumbnail_url}
+        return {"title": name, "image_url": thumbnail_url}
     return map(formatResource, resources)
 
 def create_meme(name, top_text, bottom_text):
     source_images = list_source_images()
-    source_image_names = map(lambda i: i.get("name"), source_images)
+    source_image_names = map(lambda i: i.get("title"), source_images)
     #Check that such an image exists, respond with error if not
     if name not in source_image_names:
         response = {
-            "text": "Image not found. TODO: list of images to choose from"
+            "attachments": source_images
         }
         return jsonify(response), 200
     #Find correct download url
     source_image = source_images[source_image_names.index(name)]
-    image_url = source_image["url"]
+    image_url = source_image["image_url"]
 
     #Make meme to local file
     filename = make_meme(top_text, bottom_text, image_url)
@@ -53,7 +53,9 @@ def create_meme(name, top_text, bottom_text):
     meme_url = upload['secure_url']
     response = {
         "response_type": "in_channel",
-        "text": meme_url
+        "attachments": [{
+            "image_url": meme_url}
+        ]
     }
     return jsonify(response), 200
 
