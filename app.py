@@ -35,9 +35,7 @@ def create_meme(name, top_text, bottom_text):
     source_image_names = map(lambda i: i.get("title"), source_images)
     #Check that such an image exists, respond with error if not
     if name not in source_image_names:
-        #formatted_urls = map(lambda i: "<{}|{}>".format(i["image_url"], i["title"]), source_images)
-        #response_text = "\n".join(formatted_urls)
-        image_not_found_text = "The image {name} was not found. Here's a list of valid images:".format(name = name)
+        image_not_found_text = "The image [{name}] was not found. Here's a list of valid images:".format(name = name)
         response = {
             "text": image_not_found_text,
             "attachments": source_images
@@ -54,10 +52,12 @@ def create_meme(name, top_text, bottom_text):
     upload = cloudinary.uploader.upload("images/{filename}".format(filename=filename))
 
     #Respond with downloadable url
-    meme_url = "<{url}|Check this out!>".format(url = upload['secure_url'])
     response = {
         "response_type": "in_channel",
-        "text": meme_url
+        "attachments": [{
+            "image_url": upload['secure_url'],
+            "text": "Here you go"
+        }]
     }
     return jsonify(response), 200
 
