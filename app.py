@@ -27,7 +27,7 @@ def list_source_images():
         image_id = "{id}.{format}".format(id = resource["public_id"], format = resource["format"])
         thumbnail_url = "{base}/{quality}/{image_id}".format(base = base_string, quality = quality, image_id = image_id)
         name = resource["public_id"].split("/")[-1]
-        return {"title": name, "image_url": thumbnail_url}
+        return {"title": name, "thumb_url": thumbnail_url}
     return map(formatResource, resources)
 
 def create_meme(name, top_text, bottom_text):
@@ -35,13 +35,17 @@ def create_meme(name, top_text, bottom_text):
     source_image_names = map(lambda i: i.get("title"), source_images)
     #Check that such an image exists, respond with error if not
     if name not in source_image_names:
+        #formatted_urls = map(lambda i: "<{}|{}>".format(i["image_url"], i["title"]), source_images)
+        #response_text = "\n".join(formatted_urls)
+        image_not_found_text = "The image {name} was not found. Here's a list of valid images:".format(name = name)
         response = {
+            "text": image_not_found_text,
             "attachments": source_images
         }
         return jsonify(response), 200
     #Find correct download url
     source_image = source_images[source_image_names.index(name)]
-    image_url = source_image["image_url"]
+    image_url = source_image["thumb_url"]
 
     #Make meme to local file
     filename = make_meme(top_text, bottom_text, image_url)
@@ -50,12 +54,10 @@ def create_meme(name, top_text, bottom_text):
     upload = cloudinary.uploader.upload("images/{filename}".format(filename=filename))
 
     #Respond with downloadable url
-    meme_url = upload['secure_url']
+    meme_url = "<{url}|Check this out!>".format(url = upload['secure_url'])
     response = {
         "response_type": "in_channel",
-        "attachments": [{
-            "image_url": meme_url}
-        ]
+        "text": meme_url
     }
     return jsonify(response), 200
 
