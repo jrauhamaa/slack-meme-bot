@@ -13,56 +13,81 @@ cloudinary.config(
 app = Flask(__name__)
 
 SOURCE_IMAGES_PATH = "source_images"
-image_dict = {
-    "doge": "doge.jpg"
-}
 
 @app.route('/monitor')
 def monitor():
     return 'OK', 200
 
-@app.route('/', methods=['POST'])
-def hello_world():
-    message = request.form["text"]
-    invalid_usage_response = jsonify({
-        "text": 'Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"'
-    })
-    image_not_found_response = jsonify({
-        "text": 'No such image found'
-    })
-    if not message:
-        return invalid_usage_response, 400
-    # Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"
-    try:
-        [name, content] = message.split(" ", 1)
-    except ValueError:
-        return invalid_usage_response, 400  # TODO: return instructions on how to use the bot
-    source_image_name = image_dict.get(name)
-    if not source_image_name:
-        return image_not_found_response, 400  # TODO: tell the user that the image wasn't found
+def list_source_images():
+    images_all_data = cloudinary.api.resources(type = "upload", prefix = SOURCE_IMAGES_PATH)
+    resources = images_all_data["resources"]
+    def formatResource(resource):
+        base_string = "http://res.cloudinary.com/polirytmi/image/upload"
+        quality = "q_60"
+        image_id = "{id}.{format}".format(id = resource["public_id"], format = resource["format"])
+        thumbnail_url = "{base}/{quality}/{image_id}".format(base = base_string, quality = quality, image_id = image_id)
+        name = resource["public_id"].split("/")[-1]
+        return {"name": name, "url": thumbnail_url}
+    return map(formatResource, resources)
 
-    image_path = "{path}/{name}".format(path=SOURCE_IMAGES_PATH, name=source_image_name)
-    if len(content.split("/")) == 1:
-        top_text = ""
-        bottom_text = content
-    else:
-        [top_text, bottom_text] = content.split("/", 1)
-    bottom_text = bottom_text.strip()
-    top_text = top_text.strip()
+def create_meme(name, top_text, bottom_text):
+    source_images = list_source_images()
+    source_image_names = map(lambda i: i.get("name"), source_images)
+    #Check that such an image exists, respond with error if not
+    if name not in source_image_names:
+        response = {
+            "text": "Image not found. TODO: list of images to choose from"
+        }
+        return jsonify(response), 200
+    #Find correct download url
+    source_image = source_images[source_image_names.index(name)]
+    image_url = source_image["url"]
 
-    filename = make_meme(top_text, bottom_text, image_path)
-    file_url = "{url_root}images/{filename}".format(url_root=request.url_root, filename=filename)
+    #Make meme to local file
+    filename = make_meme(top_text, bottom_text, image_url)
 
+    #Upload meme to Cloudinary
     upload = cloudinary.uploader.upload("images/{filename}".format(filename=filename))
-    meme_url = upload['secure_url']
 
+    #Respond with downloadable url
+    meme_url = upload['secure_url']
     response = {
         "response_type": "in_channel",
         "text": meme_url
     }
-    return jsonify(response)
+    return jsonify(response), 200
 
+@app.route('/', methods=['POST'])
+def main():
+    text_not_found_response = jsonify({
+        "text": 'Missing required parameter "text"'
+    })
+    help_response = jsonify({
+        "text": "TODO: usage instructions"
+    })
 
-@app.route('/images/<filename>')
-def send_image(filename):
-    return send_from_directory('images', filename)
+    text = request.form.get("text")
+    # Message needs to be as parameter "text"
+    if not text:
+        return text_not_found_response, 400
+
+    args = text.split(" ", 1)
+    name = args[0]
+    if len(args) == 1:
+        content = None
+    else:
+        content = args[1]
+
+    if name == "help":
+        return help_response, 200
+    elif name == "pics":
+        return "TODO: list pics", 200
+    elif not content:
+        return help_response, 200
+    else:
+        if len(content.split("/")) == 1:
+            top_text = ""
+            bottom_text = content
+        else:
+            [top_text, bottom_text] = content.split("/", 1)
+        return create_meme(name, top_text.strip(), bottom_text.strip())
