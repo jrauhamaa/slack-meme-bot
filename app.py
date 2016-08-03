@@ -70,7 +70,7 @@ def get_image_instructions():
         "text": "These images can be used",
         "attachments": list_source_images()
     }
-    return jsonify(response), 200
+    return json.dumps(response)
 
 
 def create_meme(name, top_text, bottom_text):
@@ -100,8 +100,12 @@ def create_meme(name, top_text, bottom_text):
     return json.dumps(response)
 
 
-def send_message(url, name, bottom_text, top_text):
+def send_meme(url, name, bottom_text, top_text):
     content = create_meme(name, top_text.strip(), bottom_text.strip())
+    send_message(url, content)
+
+
+def send_message(url, content):
     req = urllib2.Request(url)
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, content)
@@ -164,7 +168,7 @@ def monitor():
 
 @app.route('/', methods=['POST'])
 def main():
-    help_response = jsonify({
+    help_response = json.dumps({
         "text": "usage: /meme [name] [top text]/[bottom text]."
                 "  To list all available images: /meme pics"
     })
@@ -173,7 +177,8 @@ def main():
     text = request.form.get("text")
     # Message needs to be as parameter "text"
     if not text:
-        return help_response, 200
+        send_message(response_url, help_response)
+        return '', 200
 
     args = text.split(" ", 1)
     name = args[0]
@@ -183,13 +188,17 @@ def main():
         content = args[1]
 
     if name == "help":
-        return help_response, 200
+        send_message(response_url, help_response)
+        return '', 200
     elif name == "pics":
-        return get_image_instructions()
+        send_message(response_url, get_image_instructions())
+        return '', 200
     elif not content:
-        return help_response, 200
+        send_message(response_url, help_response)
+        return '', 200
     if not image_exists(name):
-        return get_image_instructions()
+        send_message(response_url, get_image_instructions())
+        return '', 200
 
     if len(content.split("/")) == 1:
         top_text = ""
@@ -198,7 +207,7 @@ def main():
         [top_text, bottom_text] = content.split("/", 1)
 
     thread = threading.Thread(
-        target=send_message,
+        target=send_meme,
         kwargs={
             "url": response_url,
             "name": name,
