@@ -163,9 +163,6 @@ def monitor():
 
 @app.route('/', methods=['POST'])
 def main():
-    text_not_found_response = jsonify({
-        "text": 'Missing required parameter "text"'
-    })
     help_response = jsonify({
         "text": "usage: /meme [name] [top text]/[bottom text]."
                 "  To list all available images: /meme pics"
@@ -175,7 +172,7 @@ def main():
     text = request.form.get("text")
     # Message needs to be as parameter "text"
     if not text:
-        return text_not_found_response, 400
+        return help_response, 200
 
     args = text.split(" ", 1)
     name = args[0]
