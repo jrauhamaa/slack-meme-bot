@@ -1,12 +1,160 @@
-from flask import Flask, jsonify, request, json, send_from_directory
+import os
+from uuid import uuid4
+import hashlib
+import json
+import urllib2
+import threading
+
+from flask import Flask, jsonify, request, json, send_from_directory, redirect
+import cloudinary
+import cloudinary.api
+import cloudinary.uploader
+
 from memegenerator import make_meme
 
-app = Flask(__name__)
+import config
 
-SOURCE_IMAGES_PATH = "source_images"
-image_dict = {
-    "doge": "doge.jpg"
-}
+
+app = Flask(__name__)
+cloudinary.config(**config.CLOUDINARY_CONF)
+
+
+def encode_id(name):
+    hash = hashlib.sha256(config.SERVER_SECRET)
+    hash.update(name)
+    public_id_hash = hash.hexdigest()[0:config.HASH_LENGTH]
+    public_id = "-".join([name, public_id_hash])
+    return public_id
+
+
+def decode_id(public_id):
+    return public_id.rsplit("-", 1)[0]
+
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1] in config.ALLOWED_EXTENSIONS
+
+
+def list_source_images():
+    images_all_data = cloudinary.api.resources(
+        type="upload",
+        prefix=config.SOURCE_IMAGES_PATH
+    )
+    resources = images_all_data["resources"]
+
+    def formatResource(resource):
+        base_string = "http://res.cloudinary.com/polirytmi/image/upload"
+        quality = "q_60"
+        image_id = "{id}.{format}".format(
+            id=resource["public_id"],
+            format=resource["format"]
+        )
+        thumbnail_url = "{base}/{quality}/{image_id}".format(
+            base=base_string,
+            quality=quality,
+            image_id=image_id
+        )
+        name = resource["public_id"].split("/")[-1]
+        return {"title": decode_id(name), "thumb_url": thumbnail_url}
+    return map(formatResource, resources)
+
+
+def image_exists(name):
+    image_names = [i.get("title") for i in list_source_images()]
+    return name in image_names
+
+
+def get_image_instructions():
+    response = {
+        "text": "These images can be used",
+        "attachments": list_source_images()
+    }
+    return jsonify(response), 200
+
+
+def create_meme(name, top_text, bottom_text):
+    source_images = list_source_images()
+    source_image_names = [i.get("title") for i in source_images]
+
+    # Find correct download url
+    source_image = source_images[source_image_names.index(name)]
+    image_url = source_image["thumb_url"]
+
+    # Make meme to local file
+    filename = make_meme(top_text, bottom_text, image_url)
+
+    # Upload meme to Cloudinary
+    upload = cloudinary.uploader.upload(
+        "images/{filename}".format(filename=filename)
+    )
+
+    # Respond with downloadable url
+    response = {
+        "response_type": "in_channel",
+        "attachments": [{
+            "image_url": upload['secure_url'],
+            "text": ""
+        }]
+    }
+    return json.dumps(response)
+
+
+def send_message(url, name, bottom_text, top_text):
+    content = create_meme(name, top_text.strip(), bottom_text.strip())
+    req = urllib2.Request(url)
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, content)
+
+
+@app.route('/add', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            return redirect(request.url)
+        file = request.files['file']
+        filename = file.filename
+        public_name = request.form.get("public_id")
+        if not public_name:
+            # TODO: return error
+            return redirect(request.url)
+        # if user does not select file, browser also
+        # submit a empty part without filename
+        if filename == '':
+            return redirect(request.url)
+        if file and allowed_file(filename):
+            filetype = filename.rsplit('.', 1)[1]
+            filename_tmp = "{uuid}.{ext}".format(
+                uuid=str(uuid4()),
+                ext=filetype
+            )
+            filepath = os.path.join(config.UPLOAD_FOLDER, filename_tmp)
+            public_id = encode_id(public_name)
+
+            file.save(filepath)
+            cloudinary.uploader.upload(
+                filepath,
+                folder=config.SOURCE_IMAGES_PATH,
+                public_id=public_id
+            )
+            # TODO: show success
+            return redirect(request.url)
+    return '''
+    <!doctype html>
+    <title>Lataa uusi kuva</title>
+    <h1>Lataa uusi kuva</h1>
+    <form action="" method=post enctype=multipart/form-data>
+      <p>
+         <label for=public_id>Nimi:</label>
+         <input type=text name=public_id>
+         <label for=file>Kuva:</label>
+         <input type=file name=file>
+         <input type=submit value=Lataa>
+    </form>
+    '''
+
 
 
 @app.route('/monitor')
@@ -15,40 +163,48 @@ def monitor():
 
 
 @app.route('/', methods=['POST'])
-def hello_world():
-    data = json.loads(request.data)
-    # TODO: support the actual slack request format
-    message = data.get("message")
-    if not message:
-        return '', 400
-    # Message format is expected to be "[name] [top text]/[bottom text]" or "[name] [bottom text]"
-    try:
-        [name, content] = message.split(" ", 1)
-    except ValueError:
-        return '', 400  # TODO: return instructions on how to use the bot
-    source_image_name = image_dict.get(name)
-    if not source_image_name:
-        return '', 400  # TODO: tell the user that the image wasn't found
+def main():
+    help_response = jsonify({
+        "text": "usage: /meme [name] [top text]/[bottom text]."
+                "  To list all available images: /meme pics"
+    })
 
-    image_path = "{path}/{name}".format(path=SOURCE_IMAGES_PATH, name=source_image_name)
+    response_url = request.form.get("response_url")
+    text = request.form.get("text")
+    # Message needs to be as parameter "text"
+    if not text:
+        return help_response, 200
+
+    args = text.split(" ", 1)
+    name = args[0]
+    if len(args) == 1:
+        content = None
+    else:
+        content = args[1]
+
+    if name == "help":
+        return help_response, 200
+    elif name == "pics":
+        return get_image_instructions()
+    elif not content:
+        return help_response, 200
+    if not image_exists(name):
+        return get_image_instructions()
+
     if len(content.split("/")) == 1:
         top_text = ""
         bottom_text = content
     else:
         [top_text, bottom_text] = content.split("/", 1)
-    bottom_text = bottom_text.strip()
-    top_text = top_text.strip()
 
-    filename = make_meme(top_text, bottom_text, image_path)
-    file_url = "{url_root}images/{filename}".format(url_root=request.url_root, filename=filename)
-
-    response = {
-        "response_type": "in_channel",
-        "text": file_url
-    }
-    return jsonify(response)
-
-
-@app.route('/images/<filename>')
-def send_image(filename):
-    return send_from_directory('images', filename)
+    thread = threading.Thread(
+        target=send_message,
+        kwargs={
+            "url": response_url,
+            "name": name,
+            "bottom_text": bottom_text,
+            "top_text": top_text
+        }
+    )
+    thread.start()
+    return jsonify({"text": "creating meme"}), 200

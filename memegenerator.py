@@ -6,14 +6,23 @@ from PIL import Image
 from PIL import ImageDraw
 from uuid import uuid4
 
+#Imports added by Timo
+import urllib, cStringIO
+
 import sys
 
 
 # https://github.com/danieldiekmeier/memegenerator
-def make_meme(topString, bottomString, filename):
+# Note this is changed a bit to read file directly from url
+def make_meme(topString, bottomString, fileUrl):
 
-    img = Image.open(filename)
+    #Read file from url instead of local folder
+    file = cStringIO.StringIO(urllib.urlopen(fileUrl).read())
+    img = Image.open(file)
+    #img = Image.open(filename)
+
     imageSize = img.size
+
 
     # find biggest font size that works
     fontSize = int(imageSize[1]/5)

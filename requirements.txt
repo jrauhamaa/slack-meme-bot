@@ -1,4 +1,4 @@
 flask==0.11.1
 gunicorn
-uuid
+cloudinary
 pillow
