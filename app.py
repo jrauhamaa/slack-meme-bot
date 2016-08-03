@@ -94,7 +94,7 @@ def create_meme(name, top_text, bottom_text):
         "response_type": "in_channel",
         "attachments": [{
             "image_url": upload['secure_url'],
-            "text": "Here you go"
+            "text": ""
         }]
     }
     return json.dumps(response)
