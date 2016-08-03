@@ -1,6 +1,8 @@
 import os
 from uuid import uuid4
 import hashlib
+import json
+import urllib2
 
 from flask import Flask, jsonify, request, json, send_from_directory, redirect
 import cloudinary
@@ -90,7 +92,14 @@ def create_meme(name, top_text, bottom_text):
             "text": "Here you go"
         }]
     }
-    return jsonify(response), 200
+    return json.dumps(response)
+
+
+def send_message(url, content):
+    req = urllib2.Request(url)
+    req.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(req, content)
+    return response
 
 
 @app.route('/add', methods=['GET', 'POST'])
@@ -156,6 +165,7 @@ def main():
         "text": "TODO: usage instructions"
     })
 
+    response_url = request.form.get("response_url")
     text = request.form.get("text")
     # Message needs to be as parameter "text"
     if not text:
@@ -174,10 +184,13 @@ def main():
         return "TODO: list pics", 200
     elif not content:
         return help_response, 200
+
+    if len(content.split("/")) == 1:
+        top_text = ""
+        bottom_text = content
     else:
-        if len(content.split("/")) == 1:
-            top_text = ""
-            bottom_text = content
-        else:
-            [top_text, bottom_text] = content.split("/", 1)
-        return create_meme(name, top_text.strip(), bottom_text.strip())
+        [top_text, bottom_text] = content.split("/", 1)
+
+    message = create_meme(name, top_text.strip(), bottom_text.strip())
+    send_message(response_url, message)
+    return jsonify({"text": "homma ok"}), 200
