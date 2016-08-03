@@ -160,7 +160,6 @@ def upload_file():
     '''
 
 
-
 @app.route('/monitor')
 def monitor():
     return 'OK', 200
