@@ -3,6 +3,7 @@ from uuid import uuid4
 import hashlib
 import json
 import urllib2
+import threading
 
 from flask import Flask, jsonify, request, json, send_from_directory, redirect
 import cloudinary
@@ -59,18 +60,22 @@ def list_source_images():
     return map(formatResource, resources)
 
 
+def image_exists(name):
+    image_names = [i.get("title") for i in list_source_images()]
+    return name in image_names
+
+
+def get_image_instructions():
+    response = {
+        "text": "These images can be used",
+        "attachments": list_source_images()
+    }
+    return jsonify(response), 200
+
+
 def create_meme(name, top_text, bottom_text):
     source_images = list_source_images()
-    source_image_names = map(lambda i: i.get("title"), source_images)
-    # Check that such an image exists, respond with error if not
-    if name not in source_image_names:
-        image_not_found_text = "The image [{name}] was not found." \
-            " Here's a list of valid images:".format(name=name)
-        response = {
-            "text": image_not_found_text,
-            "attachments": source_images
-        }
-        return jsonify(response), 200
+    source_image_names = [i.get("title") for i in source_images]
 
     # Find correct download url
     source_image = source_images[source_image_names.index(name)]
@@ -95,11 +100,11 @@ def create_meme(name, top_text, bottom_text):
     return json.dumps(response)
 
 
-def send_message(url, content):
+def send_message(url, name, bottom_text, top_text):
+    content = create_meme(name, top_text.strip(), bottom_text.strip())
     req = urllib2.Request(url)
     req.add_header('Content-Type', 'application/json')
     response = urllib2.urlopen(req, content)
-    return response
 
 
 @app.route('/add', methods=['GET', 'POST'])
@@ -162,7 +167,8 @@ def main():
         "text": 'Missing required parameter "text"'
     })
     help_response = jsonify({
-        "text": "TODO: usage instructions"
+        "text": "usage: /meme [name] [top text]/[bottom text]."
+                "  To list all available images: /meme pics"
     })
 
     response_url = request.form.get("response_url")
@@ -181,9 +187,11 @@ def main():
     if name == "help":
         return help_response, 200
     elif name == "pics":
-        return "TODO: list pics", 200
+        return get_image_instructions()
     elif not content:
         return help_response, 200
+    if not image_exists(name):
+        return get_image_instructions()
 
     if len(content.split("/")) == 1:
         top_text = ""
@@ -191,6 +199,14 @@ def main():
     else:
         [top_text, bottom_text] = content.split("/", 1)
 
-    message = create_meme(name, top_text.strip(), bottom_text.strip())
-    send_message(response_url, message)
-    return jsonify({"text": "homma ok"}), 200
+    thread = threading.Thread(
+        target=send_message,
+        kwargs={
+            "url": response_url,
+            "name": name,
+            "bottom_text": bottom_text,
+            "top_text": top_text
+        }
+    )
+    thread.start()
+    return jsonify({"text": "creating meme"}), 200
