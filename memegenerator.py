@@ -9,6 +9,7 @@ from uuid import uuid4
 # Imports added by Timo
 import urllib
 import cStringIO
+import StringIO  # cStringIO is not supported by cloudinary
 
 import sys
 
@@ -58,13 +59,12 @@ def make_meme(topString, bottomString, fileUrl):
     draw.text(topTextPosition, topString, (255, 255, 255), font=font)
     draw.text(bottomTextPosition, bottomString, (255, 255, 255), font=font)
 
-    file_id = str(uuid4())
-    filename = "{}.png".format(file_id)
-    filepath = "images/{}".format(filename)
-
-    img.save(filepath)
+    buffer = StringIO.StringIO()
+    buffer.name = 'file'
+    img.save(buffer, format='png')
     f.close()
-    return filename
+    buffer.seek(0)
+    return buffer
 
 
 def get_upper(somedata):

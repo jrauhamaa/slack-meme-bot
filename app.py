@@ -82,12 +82,11 @@ def create_meme(name, top_text, bottom_text):
     image_url = source_image["thumb_url"]
 
     # Make meme to local file
-    filename = make_meme(top_text, bottom_text, image_url)
+    buffer = make_meme(top_text, bottom_text, image_url)
 
     # Upload meme to Cloudinary
-    upload = cloudinary.uploader.upload(
-        "images/{filename}".format(filename=filename)
-    )
+    upload = cloudinary.uploader.upload(buffer)
+    buffer.close()
 
     # Respond with downloadable url
     response = {
