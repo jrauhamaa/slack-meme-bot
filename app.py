@@ -167,7 +167,7 @@ def monitor():
 @app.route('/', methods=['POST'])
 def main():
     help_response = json.dumps({
-        "text": "usage: /meme [name] [top text]/[bottom text]."
+        "text": "usage: /meme [name]/[top text]/[bottom text]."
                 "  To list all available images: /meme pics"
     })
 
@@ -178,8 +178,8 @@ def main():
         send_message(response_url, help_response)
         return '', 200
 
-    args = text.split(" ", 1)
-    name = args[0]
+    args = text.split("/", 1)
+    name = args[0].strip()
     if len(args) == 1:
         content = None
     else:
