@@ -30,7 +30,7 @@ def make_meme(topString, bottomString, fileUrl):
     font = ImageFont.truetype("unicode.impact.ttf", fontSize)
     topTextSize = font.getsize(topString)
     bottomTextSize = font.getsize(bottomString)
-    while topTextSize[0] > imageSize[0] - 20 or bottomTextSize[0] > imageSize[0] - 20:
+    while topTextSize[0] > imageSize[0]*11/12 or bottomTextSize[0] > imageSize[0]*11/12:
         fontSize = fontSize - 1
         font = ImageFont.truetype("unicode.impact.ttf", fontSize)
         topTextSize = font.getsize(topString)
@@ -38,12 +38,12 @@ def make_meme(topString, bottomString, fileUrl):
 
     # find top centered position for top text
     topTextPositionX = (imageSize[0]/2) - (topTextSize[0]/2)
-    topTextPositionY = 10
+    topTextPositionY = bottomTextSize[1]/6
     topTextPosition = (topTextPositionX, topTextPositionY)
 
     # find bottom centered position for bottom text
     bottomTextPositionX = (imageSize[0]/2) - (bottomTextSize[0]/2)
-    bottomTextPositionY = imageSize[1] - bottomTextSize[1] - 25
+    bottomTextPositionY = imageSize[1] - bottomTextSize[1] - bottomTextSize[1]/6
     bottomTextPosition = (bottomTextPositionX, bottomTextPositionY)
 
     draw = ImageDraw.Draw(img)
