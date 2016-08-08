@@ -42,25 +42,26 @@ def get_conf():
             "UPLOAD_FOLDER": 'source_images',
             "UPLOAD_PRESET": 'source_image_preset',
             "SERVER_SECRET": server_secret,
-            "CLOUDINARY_CONF": {
-                "cloud_name": cloudinary_cloud_name,
-                "api_key": cloudinary_api_key,
-                "api_secret": cloudinary_api_secret
-            }
+            "CLOUDINARY_CLOUD_NAME": cloudinary_cloud_name,
+            "CLOUDINARY_API_KEY": cloudinary_api_key,
+            "CLOUDINARY_API_SECRET": cloudinary_api_secret
         }
 
 app = Flask(__name__)
-conf = get_conf()
-if conf.get("error"):
-    raise RuntimeError(conf["error"])
+config = get_conf()
+if config.get("error"):
+    raise RuntimeError(config["error"])
 
-cloudinary.config(**config.CLOUDINARY_CONF)
+cloudinary.config(
+    cloud_name=config["CLOUDINARY_CLOUD_NAME"],
+    api_key=config["CLOUDINARY_API_KEY"],
+    api_secret=config["CLOUDINARY_API_SECRET"])
 
 
 def encode_id(name):
-    hash = hashlib.sha256(config.SERVER_SECRET)
+    hash = hashlib.sha256(config["SERVER_SECRET"])
     hash.update(name)
-    public_id_hash = hash.hexdigest()[0:config.HASH_LENGTH]
+    public_id_hash = hash.hexdigest()[0:config["HASH_LENGTH"]]
     public_id = "-".join([name, public_id_hash])
     return public_id
 
@@ -72,13 +73,13 @@ def decode_id(public_id):
 def allowed_file(filename):
     print(filename)
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in config.ALLOWED_EXTENSIONS
+           filename.rsplit('.', 1)[1].lower() in config["ALLOWED_EXTENSIONS"]
 
 
 def list_source_images():
     images_all_data = cloudinary.api.resources(
         type="upload",
-        prefix=config.SOURCE_IMAGES_PATH
+        prefix=config["SOURCE_IMAGES_PATH"]
     )
     resources = images_all_data["resources"]
 
@@ -171,15 +172,15 @@ def upload_file():
                 uuid=str(uuid4()),
                 ext=filetype
             )
-            filepath = os.path.join(config.UPLOAD_FOLDER, filename_tmp)
+            filepath = os.path.join(config["UPLOAD_FOLDER"], filename_tmp)
             public_id = encode_id(public_name)
 
             file.save(filepath)
             cloudinary.uploader.upload(
                 filepath,
-                folder=config.SOURCE_IMAGES_PATH,
+                folder=config["SOURCE_IMAGES_PATH"],
                 public_id=public_id,
-                upload_preset=config.UPLOAD_PRESET
+                upload_preset=config["UPLOAD_PRESET"]
             )
             # TODO: show success
             return redirect(request.url)
