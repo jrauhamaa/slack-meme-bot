@@ -79,7 +79,8 @@ def allowed_file(filename):
 def list_source_images():
     images_all_data = cloudinary.api.resources(
         type="upload",
-        prefix=config["SOURCE_IMAGES_PATH"]
+        prefix=config["SOURCE_IMAGES_PATH"],
+        max_results = 500
     )
     resources = images_all_data["resources"]
 
