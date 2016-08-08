@@ -15,7 +15,47 @@ from memegenerator import make_meme
 import config
 
 
+def get_env_var(var):
+    os.environ.get("")
+
+def get_conf():
+    cloudinary_cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME")
+    cloudinary_api_key = os.environ.get("CLOUDINARY_API_KEY")
+    cloudinary_api_secret = os.environ.get("CLOUDINARY_API_SECRET")
+    server_secret = os.environ.get("SERVER_SECRET")
+    missing_config = []
+    if not cloudinary_cloud_name:
+        missing_config.append("CLOUDINARY_CLOUD_NAME")
+    if not cloudinary_api_key:
+        missing_config.append("CLOUDINARY_API_KEY")
+    if not cloudinary_api_secret:
+        missing_config.append("CLOUDINARY_API_SECRET")
+    if not server_secret:
+        missing_config.append("SERVER_SECRET")
+    if missing_config:
+        return {
+            "error": "Missing required config vars: " + str(missing_config)
+        }
+    else:
+        return {
+            "ALLOWED_EXTENSIONS": set(['png', 'jpg', 'jpeg']),
+            "HASH_LENGTH": 14,
+            "SOURCE_IMAGES_PATH": "source_images",
+            "UPLOAD_FOLDER": 'source_images',
+            "UPLOAD_PRESET": 'source_image_preset',
+            "SERVER_SECRET": server_secret,
+            "CLOUDINARY_CONF": {
+                "cloud_name": cloudinary_cloud_name,
+                "api_key": cloudinary_api_key,
+                "api_secret": cloudinary_api_secret
+            }
+        }
+
 app = Flask(__name__)
+conf = get_conf()
+if conf.get("error"):
+    raise RuntimeError(conf["error"])
+
 cloudinary.config(**config.CLOUDINARY_CONF)
 
 
@@ -32,8 +72,9 @@ def decode_id(public_id):
 
 
 def allowed_file(filename):
+    print(filename)
     return '.' in filename and \
-           filename.rsplit('.', 1)[1] in config.ALLOWED_EXTENSIONS
+           filename.rsplit('.', 1)[1].lower() in config.ALLOWED_EXTENSIONS
 
 
 def list_source_images():
@@ -113,7 +154,6 @@ def send_message(url, content):
 @app.route('/add', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
-
         # check if the post request has the file part
         if 'file' not in request.files:
             return redirect(request.url)
@@ -140,7 +180,8 @@ def upload_file():
             cloudinary.uploader.upload(
                 filepath,
                 folder=config.SOURCE_IMAGES_PATH,
-                public_id=public_id
+                public_id=public_id,
+                upload_preset=config.UPLOAD_PRESET
             )
             # TODO: show success
             return redirect(request.url)

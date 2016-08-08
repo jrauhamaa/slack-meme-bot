@@ -1,7 +1,4 @@
 # Slack meme bot
 
-## How to use
-populate source_images-directory with source images. Update image_dict in app.py accordingly.
-
-1. `export FLASK_APP=app.py`
-2. `flask run`
+## run-script
+app:app --e "CLOUDINARY_CLOUD_NAME=[abc]" --e "CLOUDINARY_API_KEY=[key]" -e "CLOUDINARY_API_SECRET=[secret]" -e "SERVER_SECRET=[secret-2]"
