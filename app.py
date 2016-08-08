@@ -12,8 +12,6 @@ import cloudinary.uploader
 
 from memegenerator import make_meme
 
-import config
-
 
 def get_env_var(var):
     os.environ.get("")
